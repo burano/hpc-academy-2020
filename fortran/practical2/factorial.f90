@@ -18,13 +18,19 @@ program factorial
     
     print*, n, "! = ", fact
 
-    recursive function fact_recursive(n) result(res)
-        integer, intent(in) :: n
-        integer :: res
-        if ((n == 1) .or. (n == 2)) then
-            res = 1
-            return
-        end if
-        res = fact_recursive(n - 1) * fact_recursive(n - 2)
-    end function factorial
+    print*, ""
+    print*, "Recursive factorial solution"
+    print*, n, "! = ", fact_recursive(n)
+
+
 end program factorial
+
+recursive function fact_recursive(n) result(res)
+    integer, intent(in) :: n
+    integer :: res
+    if ((n == 0) .or. (n == 1)) then
+        res = 1
+        return
+    end if
+    res = n * fact_recursive(n - 1)
+end function fact_recursive
