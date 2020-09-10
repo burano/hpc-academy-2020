@@ -1,0 +1,328 @@
+        -:    0:Source:simple_md.f90
+        -:    0:Graph:./simple_md.gcno
+        -:    0:Data:./simple_md.gcda
+        -:    0:Runs:1
+        -:    1:! -*- mode: F90 ; mode: font-lock ; column-number-mode: true -*-
+        -:    2:!=============================================================================!
+        -:    3:!                          M D _ S T U F F                                    !
+        -:    4:!=============================================================================!
+        -:    5:!                                                                             !
+        -:    6:! $Id:
+        -:    7:!                                                                             !
+        -:    8:!-----------------------------------------------------------------------------!
+        -:    9:! Simple container module for MD data and routines for operating thereupon,   !
+        -:   10:! e.g. force calculation and position updating                                !
+        -:   11:!-----------------------------------------------------------------------------!
+        -:   12:! Written by Matt Probert, v2.0, 14/09/2010                                   !
+        -:   13:!-----------------------------------------------------------------------------!
+        -:   14:module md_stuff
+        -:   15:  implicit none
+        -:   16:
+        -:   17:  !Simulation parameters
+        -:   18:  integer, parameter :: ndim=3           ! dimensionality of the physical space
+        -:   19:  integer, parameter :: nparts=10000     ! number of particles
+        -:   20:  integer, parameter :: nsteps=2         ! number of time steps in the simulation
+        -:   21:  integer, parameter :: dp=selected_real_kind(15,300)
+        -:   22:  logical, parameter :: fixed_seed=.true.   ! T => repeatable rands for testing 
+        -:   23:  real(kind=dp), parameter :: mass=1.0_dp   ! mass of the particles
+        -:   24:  real(kind=dp), parameter :: dt=1.0E-4_dp  ! time step
+        -:   25:
+        -:   26:  !Simulation variables
+        -:   27:  real(kind=dp), save, dimension(1:ndim)          :: box=(/10.0_dp,10.0_dp,10.0_dp/)
+        -:   28:  real(kind=dp), save, dimension(1:ndim,1:nparts) :: pos
+        -:   29:  real(kind=dp), save, dimension(1:ndim,1:nparts) :: vel
+        -:   30:  real(kind=dp), save, dimension(1:ndim,1:nparts) :: force
+        -:   31:  real(kind=dp), save, dimension(1:ndim,1:nparts) :: accel
+        -:   32:  real(kind=dp), save                             :: PE, KE
+        -:   33:
+        -:   34:contains
+        -:   35:
+        1:   36:  subroutine init
+        -:   37:    !=========================================================================!
+        -:   38:    ! Initialise positions, velocities and accelerations of all particles.    !
+        -:   39:    ! Use system random number generator and either fixed or random seed.     !
+        -:   40:    !-------------------------------------------------------------------------!
+        -:   41:    ! References:                                                             !
+        -:   42:    !   none                                                                  !
+        -:   43:    !-------------------------------------------------------------------------!
+        -:   44:    ! Arguments:                                                              !
+        -:   45:    !   none                                                                  !
+        -:   46:    !-------------------------------------------------------------------------!
+        -:   47:    ! Return value:                                                           !
+        -:   48:    !   none                                                                  !
+        -:   49:    !-------------------------------------------------------------------------!
+        -:   50:    ! Parent module variables used:                                           !
+        -:   51:    !   pos, vel, accel all updated.                                          !
+        -:   52:    !   fixed_seed: if set to .true. then get a repeatable sequence of rands  !
+        -:   53:    !-------------------------------------------------------------------------!
+        -:   54:    ! Modules used:                                                           !
+        -:   55:    !   none                                                                  !
+        -:   56:    !-------------------------------------------------------------------------!
+        -:   57:    ! Key Internal Variables:                                                 !
+        -:   58:    !   rand_seed: set to clock-based value if fixed_seed=.false.             !
+        -:   59:    !-------------------------------------------------------------------------!
+        -:   60:    ! Necessary conditions:                                                   !
+        -:   61:    !   none                                                                  !
+        -:   62:    !-------------------------------------------------------------------------!
+        -:   63:    ! Written by Matt Probert, v1.0, 14/02/2005                               !
+        -:   64:    !=========================================================================!
+        -:   65:    implicit none
+        -:   66:
+        -:   67:    !random number stuff
+        -:   68:    integer :: rand_size
+        1:   69:    integer, allocatable, dimension(:) :: rand_seed
+        -:   70:
+        -:   71:    !f90 intrinsic time call
+        -:   72:    character(len=10) :: system_time           !length is crucial ...
+        -:   73:    real (kind=dp)    :: rtime
+        -:   74:    integer :: i,ierr
+        -:   75:
+        -:   76:    !random numbers for positions
+        1:   77:    call random_seed(size=rand_size)
+       1*:   78:    allocate(rand_seed(1:rand_size),stat=ierr)
+       1*:   79:    if (ierr/=0) stop 'Error in allocating rand_seed'
+        -:   80:    if (fixed_seed) then
+        9:   81:       do i=1,rand_size
+        9:   82:          rand_seed(i)=223257167+i
+        -:   83:       end do
+        -:   84:    else
+        -:   85:       call date_and_time(time=system_time)  !character string hhmmss.xxx
+        -:   86:       read (system_time,*) rtime            !convert to real
+        -:   87:       rand_seed = int(rtime * 1000.0_dp)    !0<rtime<235959999.0 which fits within huge(1)
+        -:   88:    end if
+        1:   89:    call random_seed(put=rand_seed)
+       1*:   90:    deallocate(rand_seed,stat=ierr)
+       1*:   91:    if (ierr/=0) stop 'Error in deallocating rand_seed'
+        -:   92:    !now random number generator is ready to use ...
+        -:   93:
+        -:   94:    ! set initial positions and velocities
+        1:   95:    call random_number(pos)                  !0<random_number<1
+        4:   96:    do i=1,ndim
+    30004:   97:       pos(i,:)=pos(i,:)*box(i)
+        -:   98:    end do
+        1:   99:    vel(:,:) = 0.0_dp
+        1:  100:    accel(:,:) = 0.0_dp
+        -:  101:
+        1:  102:    return
+       1*:  103:  end subroutine init
+        -:  104:
+        3:  105:  subroutine compute
+        -:  106:    !=========================================================================!
+        -:  107:    ! Compute the forces on the particles using a simple model potential:     !
+        -:  108:    !   V(dr)=sin(dr)^2 if dr<pi/2, 1.0 otherwise                             !
+        -:  109:    !   where dr=|r_i-r_j| separation of particles i and j                    !
+        -:  110:    !   Hence dV=2*sin(dr)*cos(dr) if dr<pi/2, 0.0 otherwise                  !
+        -:  111:    !-------------------------------------------------------------------------!
+        -:  112:    ! References:                                                             !
+        -:  113:    !   none                                                                  !
+        -:  114:    !-------------------------------------------------------------------------!
+        -:  115:    ! Arguments:                                                              !
+        -:  116:    !   none                                                                  !
+        -:  117:    !-------------------------------------------------------------------------!
+        -:  118:    ! Return value:                                                           !
+        -:  119:    !   none                                                                  !
+        -:  120:    !-------------------------------------------------------------------------!
+        -:  121:    ! Parent module variables used:                                           !
+        -:  122:    !   pos unchanged, force, PE and KE updated                               !
+        -:  123:    !-------------------------------------------------------------------------!
+        -:  124:    ! Modules used:                                                           !
+        -:  125:    !   none                                                                  !
+        -:  126:    !-------------------------------------------------------------------------!
+        -:  127:    ! Key Internal Variables:                                                 !
+        -:  128:    !   v(x) and dv(x) are statement functions                                !
+        -:  129:    !-------------------------------------------------------------------------!
+        -:  130:    ! Necessary conditions:                                                   !
+        -:  131:    !   none                                                                  !
+        -:  132:    !-------------------------------------------------------------------------!
+        -:  133:    ! Written by Matt Probert, v1.0, 14/02/2005                               !
+        -:  134:    !=========================================================================!
+        -:  135:    implicit none
+        -:  136:
+        -:  137:    !local stuff
+        -:  138:    integer :: i, j
+        -:  139:    real(kind=dp), dimension(1:ndim) :: rij
+        -:  140:    real(kind=dp)  :: d
+        -:  141:
+        3:  142:    PE = 0.0_dp
+        3:  143:    KE = 0.0_dp
+        -:  144:
+    30003:  145:    do i=1,nparts
+        -:  146:       !compute potential energy and forces
+   120000:  147:       force(:,i) = 0.0_dp
+300030000:  148:       do j=1,nparts
+        -:  149:
+300030000:  150:          if (i/=j) then
+1199880000:  151:             rij(:)=pos(:,i)-pos(:,j)
+1199880000:  152:             d=sqrt(dot_product(rij,rij))
+        -:  153:             ! attribute half of the potential energy to particle 'j'
+299970000:  154:             PE=PE+0.5_dp*V(d)
+1199880000:  155:             force(:,i)=force(:,i)-rij(:)*dV(d)/d
+        -:  156:          end if
+        -:  157:       enddo
+        -:  158:       ! compute kinetic energy
+   120003:  159:       KE=KE+dot_product(vel(:,i),vel(:,i))
+        -:  160:    enddo
+        3:  161:    KE=KE*0.5_dp*mass
+        -:  162:
+        3:  163:    return
+        -:  164:  end subroutine compute
+        -:  165:
+299970000:  166:  real(kind=dp) function V(x)
+        -:  167:    !Define the potential as a harmonic well which smoothly saturates to a
+        -:  168:    !maximum value at PI/2
+        -:  169:    implicit none
+        -:  170:    real (kind=dp), intent(in) :: x
+        -:  171:    real(kind=dp), parameter :: pi=3.141592653589793238462643383279502884197_dp
+        -:  172:    real(kind=dp), parameter :: pi_2=pi/2.0_dp
+        -:  173:
+299970000:  174:    V=sin(min(x,pi_2))**2
+        -:  175:
+299970000:  176:    return
+        -:  177:  end function V
+        -:  178:
+299970000:  179:  real(kind=dp) function dV(x)
+        -:  180:    !Define the derivative of the potential
+        -:  181:    implicit none
+        -:  182:    real (kind=dp), intent(in) :: x
+        -:  183:    real(kind=dp), parameter :: pi=3.141592653589793238462643383279502884197_dp
+        -:  184:    real(kind=dp), parameter :: pi_2=pi/2.0_dp
+        -:  185:
+299970000:  186:    dV=2.0_dp*sin(min(x,pi_2))*cos(min(x,pi_2))
+        -:  187:    
+299970000:  188:    return
+        -:  189:  end function dV
+        -:  190:
+        2:  191:  subroutine update
+        -:  192:    !=========================================================================!
+        -:  193:    ! Simple Velocity-Verlet MD update of positions                           !
+        -:  194:    ! i.e. r(t+dt) = r(t) + v(t)*dt + f(t)*dt**2/(2*m) +O(dt**4)              !
+        -:  195:    !      v(t+dt) = v(t) + ( f(t+dt)+f(t) )*dt/(2*m)  +O(dt**3)              !
+        -:  196:    !-------------------------------------------------------------------------!
+        -:  197:    ! References:                                                             !
+        -:  198:    !   Swope et al, J.Chem.Phys. v75, p637-649 (1982)                        !
+        -:  199:    !-------------------------------------------------------------------------!
+        -:  200:    ! Arguments:                                                              !
+        -:  201:    !   none                                                                  !
+        -:  202:    !-------------------------------------------------------------------------!
+        -:  203:    ! Return value:                                                           !
+        -:  204:    !   none                                                                  !
+        -:  205:    !-------------------------------------------------------------------------!
+        -:  206:    ! Parent module variables used:                                           !
+        -:  207:    !   pos, vel and force used,                                              !
+        -:  208:    !   pos, vel and accel updated                                            !
+        -:  209:    !-------------------------------------------------------------------------!
+        -:  210:    ! Modules used:                                                           !
+        -:  211:    !   none                                                                  !
+        -:  212:    !-------------------------------------------------------------------------!
+        -:  213:    ! Key Internal Variables:                                                 !
+        -:  214:    !   none                                                                  !
+        -:  215:    !-------------------------------------------------------------------------!
+        -:  216:    ! Necessary conditions:                                                   !
+        -:  217:    !   none                                                                  !
+        -:  218:    !-------------------------------------------------------------------------!
+        -:  219:    ! Written by Matt Probert, v1.0, 14/02/2005                               !
+        -:  220:    !=========================================================================!
+        -:  221:    implicit none
+        -:  222:
+        -:  223:    !local stuff
+        -:  224:    integer i, j
+        -:  225:
+    20002:  226:    do i = 1,nparts
+    80002:  227:       do j = 1,ndim
+    60000:  228:          pos(j,i)=pos(j,i)+vel(j,i)*dt+0.5_dp*dt*dt*accel(j,i)
+    60000:  229:          vel(j,i)=vel(j,i) +0.5_dp*dt*force(j,i)/mass+0.5_dp*dt*accel(j,i)
+    80000:  230:          accel(j,i)=force(j,i)/mass
+        -:  231:       enddo
+        -:  232:    enddo
+        -:  233:
+        2:  234:    return
+        -:  235:  end subroutine update
+        -:  236:
+        -:  237:end module md_stuff
+        -:  238:
+        1:  239:program md
+        -:  240:  !=========================================================================!
+        -:  241:  ! Simple example of MD using simple model potential                       !
+        -:  242:  ! and Velocity-Verlet integration of equations of motion.                 !
+        -:  243:  !-------------------------------------------------------------------------!
+        -:  244:  ! References:                                                             !
+        -:  245:  !   Swope et al, J.Chem.Phys. v75, p637-649 (1982)                        !
+        -:  246:  !-------------------------------------------------------------------------!
+        -:  247:  ! Arguments:                                                              !
+        -:  248:  !   none                                                                  !
+        -:  249:  !-------------------------------------------------------------------------!
+        -:  250:  ! Return value:                                                           !
+        -:  251:  !   none                                                                  !
+        -:  252:  !-------------------------------------------------------------------------!
+        -:  253:  ! Parent module variables used:                                           !
+        -:  254:  !   none                                                                  !
+        -:  255:  !-------------------------------------------------------------------------!
+        -:  256:  ! Modules used:                                                           !
+        -:  257:  !   md_stuff                                                              !
+        -:  258:  !-------------------------------------------------------------------------!
+        -:  259:  ! Key Internal Variables:                                                 !
+        -:  260:  !   none                                                                  !
+        -:  261:  !-------------------------------------------------------------------------!
+        -:  262:  ! Necessary conditions:                                                   !
+        -:  263:  !   none                                                                  !
+        -:  264:  !-------------------------------------------------------------------------!
+        -:  265:  ! Written by Matt Probert, v1.0, 14/02/2005                               !
+        -:  266:  !=========================================================================!
+        1:  267:  use md_stuff
+        -:  268:  implicit none
+        -:  269:  integer :: i, ierr, log_unit
+        -:  270:  real(kind=dp) :: Etot
+        -:  271:
+        -:  272:  !setup random initial configuration of positions etc
+        1:  273:  call init
+        -:  274:
+        -:  275:  !compute initial forces and energies
+        1:  276:  call compute
+        -:  277:
+        -:  278:  !store initial energy so can easily monitor drift
+        1:  279:  Etot=PE+KE
+        -:  280:
+        -:  281:  !set up monitoring output file
+        1:  282:  log_unit=10
+        -:  283:  open(unit=log_unit,file="simple_md.log",form="formatted", &
+        1:  284:       & status="replace",iostat=ierr)
+       1*:  285:  if (ierr/=0) stop 'Error in initialising simple_md.log'
+        1:  286:  write(log_unit,'(1x,3A20)') "PE","KE","Error"
+        1:  287:  close(unit=log_unit,iostat=ierr)
+       1*:  288:  if (ierr/=0) stop 'Error in closing simple_md.log'
+        -:  289:
+        -:  290:  !now loop over MD time steps
+        3:  291:  do i=1,nsteps
+        -:  292:
+        -:  293:     !calculate new forces and energies
+        2:  294:     call compute
+        -:  295:
+        -:  296:     !write out energies to logfile
+        -:  297:     open(unit=log_unit,file="simple_md.log",form="formatted", &
+        2:  298:          & status="old",position="append",iostat=ierr)
+        2:  299:     if (ierr==0) then
+        2:  300:        write(log_unit,'(1x,3E20.10)') PE,KE,(PE+KE-Etot)/Etot
+        -:  301:     else
+    #####:  302:        stop 'Error in opening simple_md.log'
+        -:  303:     end if
+        2:  304:     close(unit=log_unit,iostat=ierr)
+       2*:  305:     if (ierr/=0) stop 'Error in closing simple_md.log'
+        -:  306:
+        -:  307:     !perform MD update using NVE ensemble
+        3:  308:     call update
+        -:  309:
+        -:  310:  end do
+        -:  311:
+        1:  312:end program md
+        -:  313:
+        -:  314:
+        -:  315:
+        -:  316:
+        -:  317:
+        -:  318:
+        -:  319:
+        -:  320:
+        -:  321:
+        -:  322:
+        -:  323:
+        -:  324:
