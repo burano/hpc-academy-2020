@@ -93,6 +93,9 @@ contains
 
     ! set initial positions and velocities
     call random_number(pos)                  !0<random_number<1
+   !  pos(1,:)=pos(1,:)*box(1)
+   !  pos(2,:)=pos(3,:)*box(2)
+   !  pos(3,:)=pos(3,:)*box(3)
     do i=1,ndim
        pos(i,:)=pos(i,:)*box(i)
     end do
@@ -158,6 +161,16 @@ contains
        ! compute kinetic energy
        KE=KE+dot_product(vel(:,i),vel(:,i))
     enddo
+
+   !  if (n==0) then
+   !    do i=1,k
+   !       a(i)=b(i)+c
+   !    end do
+   !  else
+   !    do i=1,k
+   !       a(i)=0
+   !    end do
+   !  end if
     KE=KE*0.5_dp*mass
 
     return
@@ -187,6 +200,23 @@ contains
     
     return
   end function dV
+
+!   real(kind=dp) function VdV(x)
+!    !Define the potential as a harmonic well which smoothly saturates to a
+!    !maximum value at PI/2
+!    !Define the derivative of the potential
+!    implicit none
+!    real (kind=dp), intent(in) :: x
+!    real(kind=dp), parameter :: pi=3.141592653589793238462643383279502884197_dp
+!    real(kind=dp), parameter :: pi_2=pi/2.0_dp
+
+!    sine = sin(min(x,pi_2))
+!    V=sin(min(x,pi_2))**2
+!    dV=2.0_dp*sin(min(x,pi_2))*cos(min(x,pi_2))
+
+!    return
+!  end function VdV
+
 
   subroutine update
     !=========================================================================!
