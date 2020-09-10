@@ -1,10 +1,27 @@
 Reference
+gfortran -o simple_md -O0 simple_md.f90
+
 real    0m52.130s
 user    0m51.719s
 sys     0m0.031s
 
 Compiler Optimised
+gfortran -o simple_md_opt -O3 -march=native simple_md.f90
 
 real    0m26.106s
 user    0m26.016s
 sys     0m0.063s
+
+Profiled
+gfortran -o simple_md_pg -O0 -pg -fprofile-arcs -ftest-coverage  -Wall -Wextra -pedantic -std=f95 simple_md.f90
+
+real    1m15.881s
+user    1m15.188s
+sys     0m0.031s
+
+Profiled (add `-no-pie`)
+gfortran -o simple_md_pg -O0 -no-pie -pg -fprofile-arcs -ftest-coverage  -Wall -Wextra -pedantic -std=f95 simple_md.f90
+
+real    1m21.906s
+user    1m21.047s
+sys     0m0.078s
