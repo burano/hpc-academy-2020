@@ -1,0 +1,10 @@
+Reference
+real    0m52.130s
+user    0m51.719s
+sys     0m0.031s
+
+Compiler Optimised
+
+real    0m26.106s
+user    0m26.016s
+sys     0m0.063s
