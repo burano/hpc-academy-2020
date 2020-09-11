@@ -1,13 +1,14 @@
 program earliest_letter
     implicit none
-    character(len=:) :: input_word
+    character(len=20) :: input_word
     
     print*, "Enter a word in lowercase:"
     read*, input_word
 
+    print*, "Earliest letter: ", earliest(input_word)
     contains
     function earliest(word) result(c)
-        character(len=:), intent(in) :: word
+        character(len=20), intent(in) :: word
         character(len=1) :: c
         integer :: i
         
@@ -18,7 +19,5 @@ program earliest_letter
             end if
         end do
     end function earliest
-
-    print*, "Earliest letter: ", earliest(trim(input_word))
 
 end program earliest_letter
