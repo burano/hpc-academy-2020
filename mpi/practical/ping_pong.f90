@@ -1,21 +1,35 @@
-   program HELLO
+   program PINGPONG
    USE MPI
    
-   INTEGER :: rank, ierr
+   INTEGER :: RANK, IERROR
    INTEGER :: status(MPI_STATUS_SIZE)
-   REAL, DIMENSION(10) :: a, b
+   REAL, DIMENSION(10) :: A, B
 
-   CALL MPI_INIT(ierror)
-   CALL MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierr)
+   CALL MPI_INIT(IERROR)
+   CALL MPI_COMM_RANK(MPI_COMM_WORLD, RANK, IERROR)
 
-   IF (rank .EQ. 0) THEN
-      PRINT *,'node',rank,' HELLO_MPI - Send process:'
-      CALL MPI_SEND(a(1), 10, MPI_REAL, 1, 0, MPI_COMM_WORLD, &
-      ierr)
-   ELSE IF (rank .EQ. 1) THEN
-      PRINT *,'node',rank,' HELLO_MPI - Receive process:'
-      CALL MPI_RECV(b(1), 10, MPI_REAL, 0, 0, MPI_COMM_WORLD, &
-      status, ierr)
+   IF (RANK .EQ. 0) THEN
+      PRINT *,'node',RANK,' PINGPONG_MPI - PING'
+      CALL MPI_SEND(A, 10, MPI_REAL, 1, 0, MPI_COMM_WORLD, &
+      IERROR)
+   ELSE IF (RANK .EQ. 1) THEN
+      PRINT *,'node',RANK,' PINGPONG_MPI - PING'
+      CALL MPI_RECV(B, 10, MPI_REAL, 0, 0, MPI_COMM_WORLD, &
+      status, IERROR)
    END IF
 
-   end
+   IF (RANK .EQ. 0) THEN
+      PRINT *,'node',RANK,' PINGPONG_MPI - PONG'
+      CALL MPI_RECV(A, 10, MPI_REAL, 1, 0, MPI_COMM_WORLD, &
+      IERROR)
+   ELSE IF (RANK .EQ. 1) THEN
+      PRINT *,'node',RANK,' PINGPONG_MPI - PONG'
+      CALL MPI_SEND(B, 10, MPI_REAL, 0, 0, MPI_COMM_WORLD, &
+      status, IERROR)
+   END IF
+
+   CALL MPI_FINALIZE(IERROR)
+   if (RANK == 0) then
+       print *,'node',RANK,' finishing normally'
+   end if
+END PROGRAM PINGPONG
