@@ -29,7 +29,7 @@
    END IF
 
    CALL MPI_FINALIZE(IERROR)
-   if (RANK == 0) then
-       print *,'node',RANK,' finishing normally'
-   end if
+   IF (RANK == 0) THEN
+       PRINT *,'node',RANK,' finishing normally'
+   END IF
 END PROGRAM PINGPONG
